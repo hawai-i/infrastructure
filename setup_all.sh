@@ -1,8 +1,8 @@
 #! /bin/bash
 
-MYSQL_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
-MYSQL_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
-NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
+MYSQL_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
+MYSQL_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
+NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
 
 
 ##########
@@ -10,7 +10,7 @@ NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};
 echo "Starting MariaDB..."
 docker run -d --name nextcloud-db --hostname=mariadb \
            -v nextcloud-db-vol:/var/lib/mysql \
-           -v /share/Data/deployments/nextcloud/pureDocker/mariaDB/config:/etc/mysql/conf.d \
+           -v $PWD/mariaDB/config:/etc/mysql/conf.d \
            -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
            -e MYSQL_PASSWORD=$MYSQL_PASSWORD \
            -e MYSQL_USER=nextcloud \
@@ -40,7 +40,6 @@ docker run -d --hostname=nextcloud --name nextcloud \
            -e MYSQL_HOST=database:3306 \
            -e NEXTCLOUD_ADMIN_USER=admin \
            -e NEXTCLOUD_ADMIN_PASSWORD=$NEXTCLOUD_ADMIN_PASSWORD \
-           -v /share/Data:/data \
            --link nextcloud-db:database \
            --link elasticsearch:elasticsearch \
 --restart=always nextcloud
@@ -49,7 +48,7 @@ docker run -d --hostname=nextcloud --name nextcloud \
 
 echo "Done. Waiting..."
 # wait until initial setup is done
-sleep 5s
+sleep 5
 
 ###########
 # https://docs.nextcloud.com/server/9/admin_manual/configuration_server/reverse_proxy_configuration.html
@@ -68,9 +67,9 @@ docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set overwritewebroot --value=\"/nextcloud\""'
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set overwriteprotocoll --value=\"https\""'
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set overwriteprotocoll --value=\"https\""'
-docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set trusted_domains 0 --value=nginx.blackbox.jmj-works.com"'
+docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set trusted_domains 0 --value=nginx.rohrstetten.jmj-works.com"'
 
-php occ config:system:set trusted_domains 2 --value=##__DOMAIN2__## \
+#php occ config:system:set trusted_domains 2 --value=##__DOMAIN2__## \
 
 # Login is very slow --> bruteforce protection slows that down
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set auth.bruteforce.protection.enabled --value=\"false\" --type=boolean"'
@@ -88,15 +87,17 @@ sleep 10
 
 ###############
 # starting collabora
-docker run -d --name nextcloud-collabora -e "domain=nginx\.blackbox\.jmj-works\.com" --restart always --cap-add MKNOD collabora/code
+docker run -d --name nextcloud-collabora -e "domain=nginx\.rohrstetten\.jmj-works\.com" --restart always --cap-add MKNOD collabora/code
 
 ###############
 # Certbot
 echo "Starting certbot..."
+mkdir acme-challenge
+mkdir certs
 docker run -d --name certbot-daemon \
-           -v /share/Data/nginx-proxy/acme-root:/root \
-           -v /share/Data/nginx-proxy/acme-challenge:/var/www/acme-challenge \
-           -v /share/Data/nginx-proxy/certs:/etc/certs \
+           -v $PWD/acme-root:/root \
+           -v $PWD/acme-challenge:/var/www/acme-challenge \
+           -v $PWD/certs:/etc/certs \
            --entrypoint="/bin/sh" \
 --restart=always certbot/certbot:latest /root/startscript-acme.sh
 echo "Done. Waiting..."
@@ -108,11 +109,10 @@ sleep 60
 # nginx frontend
 echo "Starting nginx frontend..."
 docker run -d --name frontend-nginx \
-           -v /share/Data/nginx-proxy/nginx-root:/root \
-           -v /share/Data/nginx-proxy/acme-challenge:/etc/nginx/ssl/acme-challenge/ \
-           -v /share/Data/nginx-proxy/certs:/etc/nginx/ssl/certs/ \
-           -v /share/Data/nginx-proxy/nginx-conf:/etc/nginx/conf.d/ \
-           -v /share/Data/nginx-proxy/webroot:/webroot/ \
+           -v $PWD/nginx-root:/root \
+           -v $PWD/acme-challenge:/etc/nginx/ssl/acme-challenge/ \
+           -v $PWD/certs:/etc/nginx/ssl/certs/ \
+           -v $PWD/nginx-conf:/etc/nginx/conf.d/ \
            -p 30080:80 \
            -p 30443:443 \
            --link nextcloud:nextcloud-local \
