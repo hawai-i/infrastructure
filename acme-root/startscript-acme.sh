@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOMAIN=nginx.blackbox.jmj-works.com
+DOMAIN=nginx.rohrstetten.jmj-works.com
 EMAIL=martin-jan@arcor.de
 
 # This script runs the acme client
@@ -16,7 +16,7 @@ openssl req -x509 -newkey rsa:4096 \
 sleep 65s 
 
 # run certbot
-certbot certonly --noninteractive --webroot --agree-tos --expand --email $EMAIL -w /var/www/acme-challenge -d $DOMAIN -d office.dev.jmj-works.com -d farb.works && \
+certbot certonly --noninteractive --webroot --agree-tos --expand --email $EMAIL -w /var/www/acme-challenge -d $DOMAIN -d office.rohrstetten.jmj-works.com && \
 cp -rL /etc/letsencrypt/live/* /etc/certs/ && \
 while [ true ] ; \
 do certbot renew --noninteractive; cp -rL /etc/letsencrypt/live/* /etc/certs/; sleep 12h; \
