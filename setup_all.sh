@@ -1,8 +1,8 @@
 #! /bin/bash
 
-MYSQL_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
-MYSQL_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
-NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32};echo;)
+MYSQL_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
+MYSQL_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
+NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
 
 
 ##########
@@ -21,6 +21,15 @@ echo "Done. Waiting..."
 sleep 30
 
 ##########
+# Redis
+echo "Starting Redis..."
+docker run -d --name redis-nextcloud \
+--restart=always redis:5
+
+echo "Done. Waiting..."
+sleep 10
+
+##########
 # Elasticsearch (Fulltext search)
 docker run -d --name elasticsearch \
            -v elasticdata:/usr/share/elasticsearch/data \
@@ -34,15 +43,10 @@ docker exec -it elasticsearch bin/elasticsearch-plugin install --batch ingest-at
 echo "Starting nextcloud..."
 docker run -d --hostname=nextcloud --name nextcloud \
            -v nextcloud-data:/var/www/html \
-           -e MYSQL_DATABASE=nextcloud \
-           -e MYSQL_USER=nextcloud \
-           -e MYSQL_PASSWORD=$MYSQL_PASSWORD \
-           -e MYSQL_HOST=database:3306 \
-           -e NEXTCLOUD_ADMIN_USER=admin \
-           -e NEXTCLOUD_ADMIN_PASSWORD=$NEXTCLOUD_ADMIN_PASSWORD \
            -v /share/Data:/data \
            --link nextcloud-db:database \
            --link elasticsearch:elasticsearch \
+           --link redis-nextcloud:redis \
 --restart=always nextcloud
 
 
@@ -70,7 +74,10 @@ docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set overwriteprotocoll --value=\"https\""'
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set trusted_domains 0 --value=nginx.blackbox.jmj-works.com"'
 
-php occ config:system:set trusted_domains 2 --value=##__DOMAIN2__## \
+# configure redis/locking 
+docker cp $PWD/nextcloud-conf/apcu.config.php nextcloud:/var/www/html/config/apcu.config.php
+
+#php occ config:system:set trusted_domains 2 --value=##__DOMAIN2__## \
 
 # Login is very slow --> bruteforce protection slows that down
 docker exec -it nextcloud /bin/bash -c 'su www-data -s $(which bash) -c "php occ config:system:set auth.bruteforce.protection.enabled --value=\"false\" --type=boolean"'
@@ -117,11 +124,14 @@ docker run -d --name frontend-nginx \
            -p 30443:443 \
            --link nextcloud:nextcloud-local \
            --link nextcloud-collabora:collabora \
+           --link onlyoffice:docservice \
            --entrypoint="/bin/sh" \
 --restart=always nginx:latest /root/startscript-nginx.sh
 echo "Done. Waiting..."
 
 echo "Nextcloud admin password: $NEXTCLOUD_ADMIN_PASSWORD"
+
+docker run -d --name onlyoffice onlyoffice/documentserver
 
 #####################
 # Afterwards configuring using the web interface:
@@ -149,5 +159,6 @@ echo "Nextcloud admin password: $NEXTCLOUD_ADMIN_PASSWORD"
 #       start indexing:
 #       su www-data -s $(which bash) -c "php -d memory_limit=1G occ fulltextsearch:index"
 
-
+#Backup database
+docker run --restart=always --name nextcloud-backup -d --link nextcloud-db:database -e MYSQL_PASSWORD=$MYSQL_PASSWORD -v nextcloud-data:/var/www/html -v $PWD/backups:/backups -v $PWD/mariaDB/backup-script.sh:/root/backup-script.sh mariadb:10.3 /bin/bash /root/backup-script.sh
 
