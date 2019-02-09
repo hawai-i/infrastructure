@@ -9,8 +9,8 @@ services:
     volumes:
       - nextcloud-db-vol:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=
-      - MYSQL_PASSWORD=
+      - MYSQL_ROOT_PASSWORD=test1
+      - MYSQL_PASSWORD=test2
       - MYSQL_USER=nextcloud
       - MYSQL_DATABASE=nextcloud
 
@@ -31,12 +31,11 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
 
   nextcloud:
-    image: nextcloud:13.0
+    build: ./nextcloud-conf/
     container_name: nextcloud-app
     restart: always
     volumes:
        - nextcloud-data:/var/www/html
-       - /share/Data:/data
     links:
        - "nextcloud-db:database"
        - "nextcloud-elastic:elasticsearch"
@@ -47,8 +46,8 @@ services:
     container_name: certbot_daemon
     restart: always
     environment:
-      - EMAIL=
-      - DOMAINS=
+      - EMAIL=accounts@martintim.com
+      - DOMAINS=home.martintim.com,office.martintim.com
     volumes:
       - acme-challenge:/var/www/acme-challenge
       - certs:/etc/certs
@@ -61,7 +60,7 @@ services:
 
 
   frontend-nginx:
-    image: nginx
+    build: ./nginx-conf/
     container_name: frontend-nginx
     restart: always
     links:
@@ -70,8 +69,6 @@ services:
     volumes:
        - acme-challenge:/etc/nginx/ssl/acme-challenge/ 
        - certs:/etc/nginx/ssl/certs/ 
-       - ./nginx-conf:/etc/nginx/conf.d/ 
-       - ./webroot:/webroot/ 
     ports:
        - 30080:80
        - 30443:443
@@ -83,20 +80,17 @@ services:
        - certbot
 
   backup-service:
-    image: mariadb:10.3
+    build: ./mariaDB/
     container_name: nextcloud-backupper
     restart: always
     links:
       - "nextcloud-db:database"
     environment:
-      - MYSQL_PASSWORD=
+      - MYSQL_PASSWORD=test2
     volumes:
       - nextcloud-data:/var/www/html 
-      - ./backups:/backups
-      - ./mariaDB/backup-script.sh:/root/backup-script.sh
-    entrypoint:
-      - /bin/bash 
-      - /root/backup-script.sh
+      - backups:/backups
+
 
 volumes:
   nextcloud-db-vol:
@@ -104,3 +98,4 @@ volumes:
   elasticdata:
   certs:
   acme-challenge:
+  backups:
