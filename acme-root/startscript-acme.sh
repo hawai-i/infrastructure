@@ -1,14 +1,21 @@
 #!/bin/bash
 
-# All Domains separated by comma without space
-DOMAINS=nginx.blackbox.jmj-works.com,office.dev.jmj-works.com,farb.works
-EMAIL=martin-jan@arcor.de
+# This scripts expects 2 environment variables:
+# - EMAIL: the email adress used to log into letsencrypt
+# - DOMAINS: All Domains for which a certificate should be acquired separated 
+#            by comma without space
+# 
+# This script first creates a self signed dummy certificate, so
+# that the nginx, who relies on this certificate file, can start.
+# After that, this script waits, until the Domain for which a certificate
+# should be acquired is reachable.
+# Then certbot is called to create the certificates. Afterwards, every 12h certbot renew
+# is called, so that the certificates are updated if necessary.
 
-# This script runs the acme client
 
 # get the first domain only for the dummy certificate
 DOMAIN=$(echo $DOMAINS | cut -d"," -f1)
-if [ -z "$var" ]
+if [ -z "$DOMAIN" ]
 then
 	# assuming it is empty, because there is only 1 domain in DOMAINS and cut fails in busybox
 	DOMAIN=$DOMAINS
@@ -23,12 +30,14 @@ openssl req -x509 -newkey rsa:4096 \
         -nodes -subj "/C=DE/ST=Bavaria/L=Munich/O=x42x64/OU=letsencrypt self signing/CN=$DOMAIN"
 
 # wait until nginx is started properly
-sleep 65s 
+until curl --silent -I http://$DOMAIN/.well-known/acme-challenge/
+do
+	echo "waiting for http://$DOMAIN/.well-known/acme-challenge/ to be accessible from outside..."
+	sleep 5
+done
 
 
 # run certbot
-#certbot certonly --noninteractive --webroot --agree-tos --expand --email $EMAIL -w /var/www/acme-challenge -d $DOMAIN -d office.dev.jmj-works.com -d farb.works && \
-# ${DOMAINS//,/ -d } replaces all ',' within DOMAINS by ' -d '
 certbot certonly --noninteractive --webroot --agree-tos --expand --email $EMAIL -w /var/www/acme-challenge -d ${DOMAINS//,/ -d } && \
 cp -rL /etc/letsencrypt/live/* /etc/certs/ && \
 while [ true ] ; \

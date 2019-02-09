@@ -43,16 +43,16 @@ services:
        - "nextcloud-redis:redis"
 
   certbot:
-    image: certbot/certbot:latest
+    build: ./acme-root/
     container_name: certbot_daemon
     restart: always
+    environment:
+      - EMAIL=
+      - DOMAINS=
     volumes:
-      - ./acme-root:/root
-      - ./acme-challenge:/var/www/acme-challenge
-      - ./certs:/etc/certs
-    entrypoint:
-      - /bin/sh
-      - /root/startscript-acme.sh
+      - acme-challenge:/var/www/acme-challenge
+      - certs:/etc/certs
+
 
   nextcloud-onlyoffice:
     image: onlyoffice/documentserver
@@ -68,9 +68,8 @@ services:
        - "nextcloud:nextcloud-local"
        - "nextcloud-onlyoffice:docservice"
     volumes:
-       - ./nginx-root:/root 
-       - ./acme-challenge:/etc/nginx/ssl/acme-challenge/ 
-       - ./certs:/etc/nginx/ssl/certs/ 
+       - acme-challenge:/etc/nginx/ssl/acme-challenge/ 
+       - certs:/etc/nginx/ssl/certs/ 
        - ./nginx-conf:/etc/nginx/conf.d/ 
        - ./webroot:/webroot/ 
     ports:
@@ -78,7 +77,8 @@ services:
        - 30443:443
     entrypoint:
        - /bin/sh
-       - /root/startscript-nginx.sh
+       - -c
+       - "nginx && sleep 120s && while [ true ] ; do nginx -s reload ; sleep 62m ; done ;"
     depends_on:
        - certbot
 
@@ -102,3 +102,5 @@ volumes:
   nextcloud-db-vol:
   nextcloud-data:
   elasticdata:
+  certs:
+  acme-challenge:
