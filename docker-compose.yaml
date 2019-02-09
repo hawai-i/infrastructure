@@ -1,0 +1,104 @@
+version: '2'
+
+services:
+
+  nextcloud-db:
+    image: mariadb:10.3
+    container_name: nextcloud-db
+    restart: always
+    volumes:
+      - nextcloud-db-vol:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=
+      - MYSQL_PASSWORD=
+      - MYSQL_USER=nextcloud
+      - MYSQL_DATABASE=nextcloud
+
+  nextcloud-redis:
+    image: redis:5
+    container_name: nextcloud-redis
+    restart: always
+
+  nextcloud-elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.4.0
+    container_name: nextcloud-elastic
+    restart: always
+    volumes:
+      - elasticdata:/usr/share/elasticsearch/data
+    environment:
+      - bootstrap.memory_lock=true
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  nextcloud:
+    image: nextcloud:13.0
+    container_name: nextcloud-app
+    restart: always
+    volumes:
+       - nextcloud-data:/var/www/html
+       - /share/Data:/data
+    links:
+       - "nextcloud-db:database"
+       - "nextcloud-elastic:elasticsearch"
+       - "nextcloud-redis:redis"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot_daemon
+    restart: always
+    volumes:
+      - ./acme-root:/root
+      - ./acme-challenge:/var/www/acme-challenge
+      - ./certs:/etc/certs
+    entrypoint:
+      - /bin/sh
+      - /root/startscript-acme.sh
+
+  nextcloud-onlyoffice:
+    image: onlyoffice/documentserver
+    container_name: nextcloud-onlyoffice
+    restart: always
+
+
+  frontend-nginx:
+    image: nginx
+    container_name: frontend-nginx
+    restart: always
+    links:
+       - "nextcloud:nextcloud-local"
+       - "nextcloud-onlyoffice:docservice"
+    volumes:
+       - ./nginx-root:/root 
+       - ./acme-challenge:/etc/nginx/ssl/acme-challenge/ 
+       - ./certs:/etc/nginx/ssl/certs/ 
+       - ./nginx-conf:/etc/nginx/conf.d/ 
+       - ./webroot:/webroot/ 
+    ports:
+       - 30080:80
+       - 30443:443
+    entrypoint:
+       - /bin/sh
+       - /root/startscript-nginx.sh
+    depends_on:
+       - certbot
+
+  backup-service:
+    image: mariadb:10.3
+    container_name: nextcloud-backupper
+    restart: always
+    links:
+      - "nextcloud-db:database"
+    environment:
+      - MYSQL_PASSWORD=
+    volumes:
+      - nextcloud-data:/var/www/html 
+      - ./backups:/backups
+      - ./mariaDB/backup-script.sh:/root/backup-script.sh
+    entrypoint:
+      - /bin/bash 
+      - /root/backup-script.sh
+
+volumes:
+  nextcloud-db-vol:
+  nextcloud-data:
+  elasticdata:
