@@ -112,5 +112,5 @@ volumes:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=tmcloud,rw
+      o: addr=tmcloud,rw,vers=4
       device: ":/mnt/pool1/backup"
