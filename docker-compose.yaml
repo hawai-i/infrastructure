@@ -109,3 +109,8 @@ volumes:
   certs:
   acme-challenge:
   backups:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=tmcloud,rw
+      device: ":/mnt/pool1/backup"
