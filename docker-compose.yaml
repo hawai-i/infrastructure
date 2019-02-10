@@ -9,8 +9,8 @@ services:
     volumes:
       - nextcloud-db-vol:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=test1
-      - MYSQL_PASSWORD=test2
+      - MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+      - MYSQL_PASSWORD=$MYSQL_PASSWORD
       - MYSQL_USER=nextcloud
       - MYSQL_DATABASE=nextcloud
 
@@ -34,6 +34,16 @@ services:
     build: ./nextcloud-conf/
     container_name: nextcloud-app
     restart: always
+    environment:
+       - MYSQL_DATABASE=nextcloud
+       - MYSQL_USER=nextcloud
+       - MYSQL_PASSWORD=$MYSQL_PASSWORD
+       - MYSQL_HOST=database:3306
+       - NEXTCLOUD_ADMIN_USER=admin
+       - NEXTCLOUD_ADMIN_PASSWORD=$NEXTCLOUD_ADMIN_PASSWORD
+       - NEXTCLOUD_TRUSTED_DOMAINS=home.martintim.com
+       - REDIS_HOST=redis
+       - REDIS_HOST_PORT=6379
     volumes:
        - nextcloud-data:/var/www/html
     links:
@@ -86,7 +96,7 @@ services:
     links:
       - "nextcloud-db:database"
     environment:
-      - MYSQL_PASSWORD=test2
+      - MYSQL_PASSWORD=$MYSQL_PASSWORD
     volumes:
       - nextcloud-data:/var/www/html 
       - backups:/backups
