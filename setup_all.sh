@@ -4,6 +4,36 @@ MYSQL_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
 MYSQL_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
 NEXTCLOUD_ADMIN_PASSWORD=$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-32};echo;)
 
+docker run -it --rm \
+	-v nextcloud-git:/data \
+	alpine/git clone -b tim2 https://github.com/x42x64/infrastructure.git /data/infrastructure
+
+docker run -it --rm \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v nextcloud-git:/data \
+	-e MYSQL_PASSWORD=$MYSQL_PASSWORD \
+	-e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+	-e NEXTCLOUD_ADMIN_PASSWORD=$NEXTCLOUD_ADMIN_PASSWORD \
+	docker/compose:1.23.2  -p timsnextcloud -f /data/infrastructure/docker-compose.yaml up -d --build
+
+echo "NEXTCLOUD_ADMIN_PASSWORD: $NEXTCLOUD_ADMIN_PASSWORD"
+echo "MYSQL_PASSWORD: $MYSQL_PASSWORD"
+echo "MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD"
+
+
+exit
+
+docker run -it --rm \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v nextcloud-git:/data \
+	docker/compose:1.23.2  -p timsnextcloud -f /data/infrastructure/docker-compose.yaml down
+
+# restore
+docker run -it --rm \
+	# connect to network of docker compose stack (or is link to mysqldb enough?)
+ 	# connect to data share mount
+	# connect to remote backup dir
+	# run restore script in backup service
 
 ##########
 # MySQL

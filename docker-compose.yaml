@@ -112,5 +112,5 @@ volumes:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=tmcloud,rw,vers=4
-      device: ":/mnt/pool1/backup"
+      o: addr=tmcloud,rw,vers=4      # make sure that nfs4 is enabled in services of freenas and that maproot is set to a user, who can access the folder
+      device: ":/mnt/pool1/backup"   # allowed hosts should be set to the name of the rancher vm
